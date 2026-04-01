@@ -4,6 +4,9 @@
 
 复制的文本和`Code`视图下的文本相同,所见即所得
 
+<img width="133" height="68" alt="image" src="https://github.com/user-attachments/assets/e1df713e-c7a2-43b4-959f-818cca982ad3" />\
+<img width="143" height="62" alt="image" src="https://github.com/user-attachments/assets/eda42aa5-b177-484e-b556-93ab904a494a" />
+
 ## 📦 安装指南
 1. 确保你的浏览器已安装 [Tampermonkey](https://www.tampermonkey.net/) 或 [Violentmonkey](https://violentmonkey.github.io/) 扩展。
 2. 点击油猴图标，进入“添加新脚本”。
