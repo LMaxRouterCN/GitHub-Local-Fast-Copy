@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         GitHub 本地快速复制
 // @namespace    http://tampermonkey.net/
-// @version      3.4
-// @description  不请求raw站点,而是从DOM中获取纯文本复制
+// @version      3.5
+// @description  不请求raw站点,而是从DOM中获取纯文本复制,无网络延迟,更快
 // @author       LMaxRouterCN
-// @match        https://github.com/*/blob/*
+// @match        https://github.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=github.com
 // @grant        none
 // ==/UserScript==
-
 (function() {
     'use strict';
 
@@ -19,9 +18,32 @@
         realBgColor: 'transparent'
     };
 
-    setInterval(() => {
-        const existingBtn = document.getElementById('fast-copy-btn');
+    // 记录上一次的完整URL，用于检测SPA导航导致的页面切换
+    let lastUrl = location.href;
 
+    // 判断当前页面是否为blob或blame页面（需要显示快速复制按钮的目标页面）
+    function isTargetPage() {
+        return /\/(blob|blame)\//.test(location.pathname);
+    }
+
+    setInterval(() => {
+        // 【SPA导航检测】URL变化时说明GitHub做了客户端路由跳转，需要重置状态
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            // 重置全局状态
+            globalState.status = 'idle';
+            globalState.endTime = 0;
+            // 移除可能残留的旧按钮（SPA导航后React会替换DOM，旧按钮可能已脱离文档流）
+            const staleBtn = document.getElementById('fast-copy-btn');
+            if (staleBtn) {
+                staleBtn.remove();
+            }
+        }
+
+        // 非目标页面（非blob/blame）直接跳过，不做任何DOM操作
+        if (!isTargetPage()) return;
+
+        const existingBtn = document.getElementById('fast-copy-btn');
         if (existingBtn) {
             // 【核心修复：状态同步心跳】
             // 即使按钮存在，也要检查全局状态是否被后台偷偷改了
@@ -65,7 +87,6 @@
                     }
                 }
                 if (!realBtnRef) realBtnRef = rawLink;
-
                 initFastCopyButton(buttonGroup, rawLink, realBtnRef);
             }
         }
@@ -104,12 +125,10 @@
             padding-bottom: ${refStyle.paddingBottom};
             padding-left: 16px;
             padding-right: 16px;
-
             color: ${refStyle.color};
             background-color: ${realBgColor};
             border: 1px solid ${refStyle.borderColor};
             border-radius: 6px 0 0 6px;
-
             font-size: 14px;
             font-weight: 400;
             cursor: pointer;
@@ -117,11 +136,9 @@
             font-family: inherit;
             white-space: nowrap;
             box-sizing: border-box;
-
             margin-right: -1px;
             position: relative;
             z-index: 1;
-
             text-align: center;
         `;
 
@@ -171,12 +188,10 @@
             if (globalState.status !== 'idle') return;
 
             const codeContainer = document.querySelector('div.react-code-file-contents');
-
             if (codeContainer) {
                 performCopy(codeContainer, fastCopyBtn);
             } else {
                 const tabContainer = document.querySelector('ul[class*="BlobTabButtons-module"]');
-
                 if (tabContainer) {
                     const buttons = tabContainer.querySelectorAll('li button');
                     let codeTabBtn = null;
@@ -192,13 +207,12 @@
                         fastCopyBtn.textContent = 'Loading...';
                         fastCopyBtn.style.color = '#8b949e';
                         fastCopyBtn.style.backgroundColor = globalState.realBgColor;
-
                         codeTabBtn.click();
 
                         waitForCodeView(() => {
                             const newCodeContainer = document.querySelector('div.react-code-file-contents');
                             if (newCodeContainer) {
-                                // 注意：这里传入的 fastCopyBtn 可能已经被 React 销毁了，没关系，performCopy 会更新全局状态，由上面的“心跳”负责更新新按钮
+                                // 注意：这里传入的 fastCopyBtn 可能已经被 React 销毁了，没关系，performCopy 会更新全局状态，由上面的"心跳"负责更新新按钮
                                 performCopy(newCodeContainer, fastCopyBtn);
                             } else {
                                 resetBtnState(fastCopyBtn);
@@ -232,7 +246,6 @@
 
     async function performCopy(codeContainer, currentBtn) {
         const codeLines = codeContainer.querySelectorAll('div.react-code-text:not(.react-line-number)');
-
         if (codeLines.length === 0) {
             resetBtnState(currentBtn);
             alert('未能提取到代码文本。');
@@ -257,8 +270,8 @@
                 currentBtn.style.zIndex = '2';
                 setTimeout(() => resetBtnState(currentBtn), 2000);
             }
-            // 如果按钮已经死了，不用管，上面的“心跳”会自动接管并更新新按钮
 
+            // 如果按钮已经死了，不用管，上面的"心跳"会自动接管并更新新按钮
         } catch (err) {
             console.error('Fast Copy 失败:', err);
             resetBtnState(currentBtn);
